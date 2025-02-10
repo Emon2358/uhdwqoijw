@@ -41,12 +41,17 @@ jobs:
         run: |
           xz -9 -e modified_hdi/*.hdi
 
-      - name: Commit and Push Changes
+      - name: Commit and Push Changes to Repository
         run: |
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
-          git checkout -b release
-          mv modified_hdi/*.hdi.xz extracted_hdi/
-          git add extracted_hdi/*.hdi.xz
+          # Make sure we are on the correct branch (main)
+          git checkout main
+          # Create a directory to store the modified HDI files
+          mkdir -p extracted_hdi/modified
+          mv modified_hdi/*.hdi.xz extracted_hdi/modified/
+          # Stage and commit the changes
+          git add extracted_hdi/modified/*.hdi.xz
           git commit -m "Updated HDI files with XDF and EXE files and compressed them"
-          git push origin release --force
+          # Push to the repository (without using releases)
+          git push origin main
