@@ -17,7 +17,7 @@ jobs:
       - name: Install Required Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y mtools lzma fuse3 libfuse2
+          sudo apt-get install -y mtools lzma fuse3 libfuse2 libguestfs-tools
 
       - name: Extract HDI File
         run: |
@@ -29,11 +29,11 @@ jobs:
           mkdir modified_hdi temp_mount
           for hdi in extracted_hdi/*.hdi; do
             hdi_name=$(basename "$hdi")
-            # Try using fuse to mount HDI instead of standard mount
-            sudo mount -t auto -o loop "$hdi" temp_mount || (echo "Mount failed for $hdi" && dmesg)
+            # Attempt to mount using guestmount (libguestfs)
+            sudo guestmount -a "$hdi" -m /dev/sda1 --ro temp_mount || echo "Failed to mount $hdi"
             # If mount is successful, copy files and unmount
             sudo cp -v *.XDF *.EXE temp_mount/
-            sudo umount temp_mount || echo "Failed to unmount $hdi"
+            sudo guestunmount temp_mount || echo "Failed to unmount $hdi"
             cp "$hdi" "modified_hdi/$hdi_name"
           done
 
