@@ -17,7 +17,7 @@ jobs:
       - name: Install Required Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y mtools lzma fuse3 libfuse2 libguestfs-tools
+          sudo apt-get install -y mtools lzma fuse3 libfuse2 libguestfs-tools zip
 
       - name: Extract HDI File
         run: |
@@ -37,9 +37,12 @@ jobs:
             cp "$hdi" "modified_hdi/$hdi_name"
           done
 
-      - name: Compress Modified HDI File
+      - name: Compress Modified HDI File with Zip
         run: |
-          xz -9 -e modified_hdi/*.hdi
+          # Create a zip archive with maximum compression (-9)
+          for hdi in modified_hdi/*.hdi; do
+            zip -9 "${hdi}.zip" "$hdi"
+          done
 
       - name: Commit and Push Changes to Repository
         run: |
@@ -47,11 +50,13 @@ jobs:
           git config --global user.email "github-actions@github.com"
           # Make sure we are on the correct branch (main)
           git checkout main
+          # Pull remote changes to avoid conflicts
+          git pull --rebase origin main
           # Create a directory to store the modified HDI files
           mkdir -p extracted_hdi/modified
-          mv modified_hdi/*.hdi.xz extracted_hdi/modified/
+          mv modified_hdi/*.hdi.zip extracted_hdi/modified/
           # Stage and commit the changes
-          git add extracted_hdi/modified/*.hdi.xz
+          git add extracted_hdi/modified/*.hdi.zip
           git commit -m "Updated HDI files with XDF and EXE files and compressed them"
           # Push to the repository (without using releases)
           git push origin main
