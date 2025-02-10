@@ -86,10 +86,8 @@
 
       // file からディスクイメージを np2wasm に追加する関数
       async function addImage(file, is_fdd) {
-        // addDiskImage にファイル名とデータを登録
         np2.addDiskImage(file.name, new Uint8Array(await file.arrayBuffer()));
         if (is_fdd) {
-          // FDDの場合はセレクトボックスに追加し、最初のFDDに設定
           for (const select of fddSelects) {
             const option = document.createElement('option');
             option.value = file.name;
@@ -101,12 +99,11 @@
             np2.setFdd(0, file.name);
           }
         } else {
-          // HDDの場合は HDD に設定
           np2.setHdd(0, file.name);
         }
       }
 
-      // ドラッグ&ドロップによるイメージ追加の処理（従来の機能）
+      // ドラッグ＆ドロップでの追加処理（従来の機能）
       droparea.addEventListener('dragover', (e) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'copy';
@@ -119,12 +116,10 @@
         for (const file of files) {
           if (file.name.match(/\.(d88|88d|d98|98d|fdi|xdf|hdm|dup|2hd|tfd|img)$/i)) {
             await create_np2();
-            // 拡張子が該当すれば FDD として追加
             await addImage(file, true);
             readyToRun = true;
           } else if (file.name.match(/\.(thd|nhd|hdi)$/i)) {
             await create_np2();
-            // HDD として追加
             await addImage(file, false);
             readyToRun = true;
           } else {
@@ -136,32 +131,32 @@
         }
       });
 
-      // サイトアクセス時にデフォルトのイメージを自動でダウンロードして追加する処理
+      // ページロード時に自動でディスクイメージを追加する処理
       async function loadDefaultImages() {
         await create_np2();
-        
-        // 1. フロッピーイメージ (VZ_98.XDF) をダウンロードして追加
+
+        // 1. システムディスク (fd98_2hd.img) を先にダウンロードして追加
         try {
-          const res1 = await fetch('https://github.com/vcraftjp/VZEditor/raw/refs/heads/main/FDImage/VZ_98.XDF');
-          if (!res1.ok) throw new Error(`HTTP error! status: ${res1.status}`);
-          const buffer1 = await res1.arrayBuffer();
-          const file1 = new File([buffer1], 'VZ_98.XDF');
-          await addImage(file1, true); // FDDとして追加
+          const resSys = await fetch('https://github.com/Emon2358/uhdwqoijw/raw/refs/heads/main/fd98_2hd.img');
+          if (!resSys.ok) throw new Error(`HTTP error! status: ${resSys.status}`);
+          const bufferSys = await resSys.arrayBuffer();
+          const fileSys = new File([bufferSys], 'fd98_2hd.img');
+          await addImage(fileSys, false); // HDD として追加
         } catch (error) {
-          console.error('Failed to load VZ_98.XDF:', error);
+          console.error('Failed to load system disk (fd98_2hd.img):', error);
         }
-        
-        // 2. HDDイメージ (fd98_2hd.img) をダウンロードして追加
+
+        // 2. VZ Editor 用ディスク (VZ_98.XDF) を後からダウンロードして追加
         try {
-          const res2 = await fetch('https://github.com/Emon2358/uhdwqoijw/raw/refs/heads/main/fd98_2hd.img');
-          if (!res2.ok) throw new Error(`HTTP error! status: ${res2.status}`);
-          const buffer2 = await res2.arrayBuffer();
-          const file2 = new File([buffer2], 'fd98_2hd.img');
-          await addImage(file2, false); // HDDとして追加（必要に応じて true に変更してください）
+          const resEditor = await fetch('https://github.com/vcraftjp/VZEditor/raw/refs/heads/main/FDImage/VZ_98.XDF');
+          if (!resEditor.ok) throw new Error(`HTTP error! status: ${resEditor.status}`);
+          const bufferEditor = await resEditor.arrayBuffer();
+          const fileEditor = new File([bufferEditor], 'VZ_98.XDF');
+          await addImage(fileEditor, true); // FDD として追加
         } catch (error) {
-          console.error('Failed to load fd98_2hd.img:', error);
+          console.error('Failed to load VZ Editor disk (VZ_98.XDF):', error);
         }
-        
+
         if (np2.state === 'ready') {
           np2.run();
         }
