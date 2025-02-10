@@ -15,7 +15,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Install Required Tools
-        run: sudo apt-get update && sudo apt-get install -y mtools lzma
+        run: sudo apt-get update && sudo apt-get install -y mtools lzma fuse3
 
       - name: Extract HDI File
         run: |
@@ -24,11 +24,12 @@ jobs:
 
       - name: Process HDI Files
         run: |
-          mkdir modified_hdi
+          mkdir modified_hdi temp_mount
           for hdi in extracted_hdi/*.hdi; do
             hdi_name=$(basename "$hdi")
-            mcopy -i "$hdi" *.XDF ::
-            mcopy -i "$hdi" *.EXE ::
+            sudo mount -o loop "$hdi" temp_mount
+            sudo cp -v *.XDF *.EXE temp_mount/
+            sudo umount temp_mount
             cp "$hdi" "modified_hdi/$hdi_name"
           done
 
