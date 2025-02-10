@@ -1,0 +1,40 @@
+name: Update IMG Files
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  update-img:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install necessary tools
+        run: sudo apt update && sudo apt install -y mtools
+
+      - name: Process IMG files
+        run: |
+          mkdir modified_img
+          for img_file in *.img; do
+            img_name=$(basename "$img_file")
+            mkdir temp_mount
+            sudo mount -o loop "$img_file" temp_mount
+            sudo cp *.xdf *.exe temp_mount/
+            sudo umount temp_mount
+            rmdir temp_mount
+            cp "$img_file" "modified_img/$img_name"
+          done
+
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          mv modified_img/* .
+          git add *.img
+          git commit -m "Updated IMG files with additional content"
+          git push
