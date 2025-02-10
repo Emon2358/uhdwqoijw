@@ -1,0 +1,176 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>leaf98</title>
+    <style>
+      body {
+        background: url('https://i.discogs.com/ix4qyx5qSTNlWWxBRLsftfi-Dli50W4o_Yq4dBpZOFI/rs:fit/g:sm/q:90/h:384/w:382/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTUzNzUy/OTQtMTM5MTgzMjIw/OC04MjgyLmpwZWc.jpeg') no-repeat center center fixed;
+        background-size: cover;
+      }
+      .container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-top: 20px;
+      }
+      .emscripten_border {
+        border: 1px solid black;
+        margin-bottom: 20px;
+      }
+      canvas.emscripten {
+        border: 0px none;
+      }
+      .controls {
+        margin-top: 20px;
+        text-align: center;
+      }
+      .droparea {
+        border: 2px dashed #000;
+        padding: 20px;
+        text-align: center;
+        width: 80%;
+        max-width: 600px;
+        margin-top: 20px;
+      }
+      @media screen and (min-resolution: 2dppx) {
+        canvas { image-rendering: pixelated; image-rendering: -moz-crisp-edges; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="emscripten_border">
+        <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()"></canvas>
+      </div>
+      <div class="controls">
+        <input type="checkbox" id="resize">Resize canvas
+        <input type="checkbox" id="pointerLock" checked>Lock/hide mouse pointer
+        &nbsp;&nbsp;&nbsp;
+        <input type="button" value="Fullscreen" onclick="Module.requestFullScreen(document.getElementById('pointerLock').checked,
+                                                                                      document.getElementById('resize').checked)">
+      </div>
+      <div class="droparea" id="droparea">
+        Drag & drop FDD/HDD disk images here!
+      </div>
+      <div>
+        FDD1:
+        <select id="fdd1">
+          <option value="">(ejected)</option>
+        </select>
+        FDD2:
+        <select id="fdd2">
+          <option value="">(ejected)</option>
+        </select>
+      </div>
+    </div>
+    <script type="module">
+      import { NP2, NP21 } from "https://unpkg.com/np2-wasm/dist/np2-wasm.js";
+
+      const canvas = document.getElementById('canvas');
+      const droparea = document.getElementById('droparea');
+      const fddSelects = ['fdd1', 'fdd2'].map(id => document.getElementById(id));
+      let np2;
+
+      async function create_np2() {
+        if (np2) return;
+        np2 = await NP21.create({
+          canvas: canvas,
+          clk_mult: 8,
+          Latencys: 120,
+          onDiskChange: (name) => console.log(name + ' changed'),
+          onExit: () => { np2.reset(); }
+        });
+      }
+
+      // file からディスクイメージを np2wasm に追加する関数
+      async function addImage(file, is_fdd) {
+        // addDiskImage にファイル名とデータを登録
+        np2.addDiskImage(file.name, new Uint8Array(await file.arrayBuffer()));
+        if (is_fdd) {
+          // FDDの場合はセレクトボックスに追加し、最初のFDDに設定
+          for (const select of fddSelects) {
+            const option = document.createElement('option');
+            option.value = file.name;
+            option.textContent = file.name;
+            select.appendChild(option);
+          }
+          if (np2.state === 'ready' && fddSelects[0].value === '') {
+            fddSelects[0].value = file.name;
+            np2.setFdd(0, file.name);
+          }
+        } else {
+          // HDDの場合は HDD に設定
+          np2.setHdd(0, file.name);
+        }
+      }
+
+      // ドラッグ&ドロップによるイメージ追加の処理（従来の機能）
+      droparea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+      });
+
+      droparea.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        const files = e.dataTransfer.files;
+        let readyToRun = false;
+        for (const file of files) {
+          if (file.name.match(/\.(d88|88d|d98|98d|fdi|xdf|hdm|dup|2hd|tfd|img)$/i)) {
+            await create_np2();
+            // 拡張子が該当すれば FDD として追加
+            await addImage(file, true);
+            readyToRun = true;
+          } else if (file.name.match(/\.(thd|nhd|hdi)$/i)) {
+            await create_np2();
+            // HDD として追加
+            await addImage(file, false);
+            readyToRun = true;
+          } else {
+            console.log(`unrecognized image type: ${file.name}`);
+          }
+        }
+        if (np2.state === 'ready' && readyToRun) {
+          np2.run();
+        }
+      });
+
+      // サイトアクセス時にデフォルトのイメージを自動でダウンロードして追加する処理
+      async function loadDefaultImages() {
+        await create_np2();
+        
+        // 1. フロッピーイメージ (VZ_98.XDF) をダウンロードして追加
+        try {
+          const res1 = await fetch('https://github.com/vcraftjp/VZEditor/raw/refs/heads/main/FDImage/VZ_98.XDF');
+          if (!res1.ok) throw new Error(`HTTP error! status: ${res1.status}`);
+          const buffer1 = await res1.arrayBuffer();
+          const file1 = new File([buffer1], 'VZ_98.XDF');
+          await addImage(file1, true); // FDDとして追加
+        } catch (error) {
+          console.error('Failed to load VZ_98.XDF:', error);
+        }
+        
+        // 2. HDDイメージ (fd98_2hd.img) をダウンロードして追加
+        try {
+          const res2 = await fetch('https://github.com/Emon2358/uhdwqoijw/raw/refs/heads/main/fd98_2hd.img');
+          if (!res2.ok) throw new Error(`HTTP error! status: ${res2.status}`);
+          const buffer2 = await res2.arrayBuffer();
+          const file2 = new File([buffer2], 'fd98_2hd.img');
+          await addImage(file2, false); // HDDとして追加（必要に応じて true に変更してください）
+        } catch (error) {
+          console.error('Failed to load fd98_2hd.img:', error);
+        }
+        
+        if (np2.state === 'ready') {
+          np2.run();
+        }
+      }
+
+      // ページ読み込み完了時に自動実行
+      window.addEventListener('load', () => {
+        loadDefaultImages();
+      });
+    </script>
+  </body>
+</html>
