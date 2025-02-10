@@ -24,28 +24,38 @@ jobs:
           mkdir extracted_hdi
           unzip fd98_hd_250m_20220123.zip -d extracted_hdi
 
-      - name: Process HDI Files using mtools
+      - name: Process HDI Files and Add EXE/XDF Files
         run: |
           mkdir modified_hdi
+          # Replacing the source of EXE and XDF files to those from the repository
           for hdi in extracted_hdi/*.hdi; do
             hdi_name=$(basename "$hdi")
-            # Mount using mtools
-            sudo mount -o loop "$hdi" /mnt
+            mount_dir="/mnt/$hdi_name"
+            mkdir -p "$mount_dir"
+            
+            # Mount the HDI file
+            sudo mount -o loop "$hdi" "$mount_dir"
             if [ $? -eq 0 ]; then
-              # If mount succeeds, copy files
-              sudo cp /mnt/*.XDF /mnt/*.EXE modified_hdi/
-              sudo umount /mnt
+              echo "Mounted $hdi"
+              
+              # Find EXE and XDF files from the repository and copy them into the mounted HDI
+              for file in $(find . -type f \( -name "*.EXE" -o -name "*.XDF" \)); do
+                sudo cp "$file" "$mount_dir/"
+              done
+              
+              # Create a new HDI file with the added EXE and XDF files
+              sudo umount "$mount_dir"
+              new_hdi="modified_hdi/$hdi_name"
+              dd if="$hdi" of="$new_hdi" bs=512 seek=4 conv=notrunc
             else
               echo "Skipping $hdi due to mount failure."
             fi
           done
 
-      - name: Compress Modified HDI File with Zip
+      - name: Compress Modified HDI Files with Zip
         run: |
           # Create a zip archive with maximum compression (-9)
-          for hdi in modified_hdi/*.hdi; do
-            zip -9 "${hdi}.zip" "$hdi"
-          done
+          zip -r modified_hdi.zip modified_hdi
 
       - name: Commit and Push Changes to Repository
         run: |
@@ -57,9 +67,9 @@ jobs:
           git pull --rebase origin main
           # Create a directory to store the modified HDI files
           mkdir -p extracted_hdi/modified
-          mv modified_hdi/*.hdi.zip extracted_hdi/modified/
+          mv modified_hdi.zip extracted_hdi/modified/
           # Stage and commit the changes
-          git add extracted_hdi/modified/*.hdi.zip
-          git commit -m "Updated HDI files with XDF and EXE files and compressed them"
+          git add extracted_hdi/modified/*.zip
+          git commit -m "Updated HDI files with EXE and XDF files, created new HDI"
           # Push to the repository (without using releases)
           git push origin main
