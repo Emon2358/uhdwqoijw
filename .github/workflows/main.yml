@@ -1,4 +1,4 @@
-name: Update IMG Files
+name: Modify IMG Files and Upload to Repository
 
 on:
   push:
@@ -7,47 +7,32 @@ on:
   workflow_dispatch:
 
 jobs:
-  update-img:
+  modify-img:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: Install necessary tools
-        run: sudo apt update && sudo apt install -y mtools
+      - name: Install Required Tools
+        run: sudo apt-get update && sudo apt-get install -y mtools
 
-      - name: Process IMG files
+      - name: Process IMG Files
         run: |
           mkdir modified_img
-          shopt -s nullglob
-          xdf_files=( *.XDF )
-          exe_files=( *.EXE )
-          if [ ${#XDF_files[@]} -eq 0 ] && [ ${#EXE_files[@]} -eq 0 ]; then
-            echo "No .XDF or .EXE files found. Skipping IMG modification."
-            exit 0
-          fi
-          for img_file in *.img; do
-            img_name=$(basename "$img_file")
-            mkdir temp_mount
-            sudo mount -o loop "$img_file" temp_mount
-            sudo chmod -R u+w temp_mount
-            for file in "${xdf_files[@]}" "${exe_files[@]}"; do
-              if [ -f "$file" ]; then
-                sudo cp "$file" temp_mount/
-              fi
-            done
-            sync
-            sudo umount temp_mount
-            rmdir temp_mount
-            cp "$img_file" "modified_img/$img_name"
+          for img in img/*.img; do
+            img_name=$(basename "$img")
+            mcopy -i "$img" *.XDF ::
+            mcopy -i "$img" *.EXE ::
+            cp "$img" "modified_img/$img_name"
           done
 
-      - name: Commit and push changes
+      - name: Commit and Push Changes
         run: |
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
-          mv modified_img/* .
-          git add *.img
-          git commit -m "Updated IMG files with additional content"
-          git push
+          git checkout -b release
+          mv modified_img/* img/
+          git add img/*.img
+          git commit -m "Updated IMG files with XDF and EXE files"
+          git push origin release --force
