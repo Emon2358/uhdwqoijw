@@ -17,7 +17,7 @@ jobs:
       - name: Install Required Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y mtools lzma fuse3 libfuse2 zip
+          sudo apt-get install -y mtools lzma fuse3 libfuse2 zip qemu-utils libguestfs-tools
 
       - name: Extract HDI File
         run: |
@@ -33,10 +33,10 @@ jobs:
             mount_dir="./mount_temp/$hdi_name"  # Use a temporary directory inside the repo
             mkdir -p "$mount_dir"
             
-            # Mount the HDI file
-            sudo mount -o loop "$hdi" "$mount_dir"
+            # Attempt mount using guestmount (libguestfs)
+            guestmount -a "$hdi" -m /dev/sda1 --ro "$mount_dir"
             if [ $? -eq 0 ]; then
-              echo "Mounted $hdi"
+              echo "Mounted $hdi using guestmount"
               
               # Find EXE and XDF files from the repository and copy them into the mounted HDI
               for file in $(find . -type f \( -name "*.EXE" -o -name "*.XDF" \)); do
@@ -44,11 +44,9 @@ jobs:
               done
               
               # Create a new HDI file with the added EXE and XDF files
-              sudo umount "$mount_dir"
-              new_hdi="modified_hdi/$hdi_name"
-              dd if="$hdi" of="$new_hdi" bs=512 seek=4 conv=notrunc
+              guestumount "$mount_dir"
             else
-              echo "Skipping $hdi due to mount failure."
+              echo "Skipping $hdi due to mount failure with guestmount."
             fi
           done
 
