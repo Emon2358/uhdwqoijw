@@ -24,7 +24,7 @@ jobs:
             img_name=$(basename "$img_file")
             mkdir temp_mount
             sudo mount -o loop "$img_file" temp_mount
-            sudo cp *.xdf *.exe temp_mount/
+            sudo cp *.XDF *.EXE temp_mount/
             sudo umount temp_mount
             rmdir temp_mount
             cp "$img_file" "modified_img/$img_name"
