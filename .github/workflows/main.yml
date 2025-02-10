@@ -17,29 +17,27 @@ jobs:
       - name: Install Required Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y mtools lzma fuse3 libfuse2 libguestfs-tools zip
+          sudo apt-get install -y mtools lzma fuse3 libfuse2 zip
 
       - name: Extract HDI File
         run: |
           mkdir extracted_hdi
           unzip fd98_hd_250m_20220123.zip -d extracted_hdi
 
-      - name: Process HDI Files
+      - name: Process HDI Files using mtools
         run: |
-          mkdir modified_hdi temp_mount
+          mkdir modified_hdi
           for hdi in extracted_hdi/*.hdi; do
             hdi_name=$(basename "$hdi")
-            # Attempt to mount using guestmount (libguestfs)
-            # Ensure the proper device is mounted (this could change depending on the actual HDI format)
-            sudo guestmount -a "$hdi" -m /dev/sda --ro temp_mount || echo "Failed to mount $hdi"
-            # If mount is successful, copy files and unmount
-            if mountpoint -q temp_mount; then
-              sudo cp -v *.XDF *.EXE temp_mount/
-              sudo guestunmount temp_mount || echo "Failed to unmount $hdi"
+            # Mount using mtools
+            sudo mount -o loop "$hdi" /mnt
+            if [ $? -eq 0 ]; then
+              # If mount succeeds, copy files
+              sudo cp /mnt/*.XDF /mnt/*.EXE modified_hdi/
+              sudo umount /mnt
             else
               echo "Skipping $hdi due to mount failure."
             fi
-            cp "$hdi" "modified_hdi/$hdi_name"
           done
 
       - name: Compress Modified HDI File with Zip
