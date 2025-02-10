@@ -30,7 +30,7 @@ jobs:
           # Replacing the source of EXE and XDF files to those from the repository
           for hdi in extracted_hdi/*.hdi; do
             hdi_name=$(basename "$hdi")
-            mount_dir="/mnt/$hdi_name"
+            mount_dir="./mount_temp/$hdi_name"  # Use a temporary directory inside the repo
             mkdir -p "$mount_dir"
             
             # Mount the HDI file
