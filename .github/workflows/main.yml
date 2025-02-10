@@ -20,11 +20,24 @@ jobs:
       - name: Process IMG files
         run: |
           mkdir modified_img
+          shopt -s nullglob
+          xdf_files=( *.XDF )
+          exe_files=( *.EXE )
+          if [ ${#XDF_files[@]} -eq 0 ] && [ ${#EXE_files[@]} -eq 0 ]; then
+            echo "No .XDF or .EXE files found. Skipping IMG modification."
+            exit 0
+          fi
           for img_file in *.img; do
             img_name=$(basename "$img_file")
             mkdir temp_mount
             sudo mount -o loop "$img_file" temp_mount
-            sudo cp *.XDF *.EXE temp_mount/
+            sudo chmod -R u+w temp_mount
+            for file in "${xdf_files[@]}" "${exe_files[@]}"; do
+              if [ -f "$file" ]; then
+                sudo cp "$file" temp_mount/
+              fi
+            done
+            sync
             sudo umount temp_mount
             rmdir temp_mount
             cp "$img_file" "modified_img/$img_name"
