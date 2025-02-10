@@ -30,10 +30,15 @@ jobs:
           for hdi in extracted_hdi/*.hdi; do
             hdi_name=$(basename "$hdi")
             # Attempt to mount using guestmount (libguestfs)
-            sudo guestmount -a "$hdi" -m /dev/sda1 --ro temp_mount || echo "Failed to mount $hdi"
+            # Ensure the proper device is mounted (this could change depending on the actual HDI format)
+            sudo guestmount -a "$hdi" -m /dev/sda --ro temp_mount || echo "Failed to mount $hdi"
             # If mount is successful, copy files and unmount
-            sudo cp -v *.XDF *.EXE temp_mount/
-            sudo guestunmount temp_mount || echo "Failed to unmount $hdi"
+            if mountpoint -q temp_mount; then
+              sudo cp -v *.XDF *.EXE temp_mount/
+              sudo guestunmount temp_mount || echo "Failed to unmount $hdi"
+            else
+              echo "Skipping $hdi due to mount failure."
+            fi
             cp "$hdi" "modified_hdi/$hdi_name"
           done
 
